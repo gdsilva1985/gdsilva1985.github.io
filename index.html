@@ -7,59 +7,92 @@
   <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
 </head>
 <body>
+  <script>
+// Step 1 : Load the JavaScript SDK asynchronously
+(function (d, s, id) {
+  var js,
+    fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) return;
+  js = d.createElement(s);
+  js.id = id;
+  js.src = "https://connect.facebook.net/en_US/sdk.js";
+  fjs.parentNode.insertBefore(js, fjs);
+})(document, "script", "facebook-jssdk");
 
+// Step 2 : Init after loading sdk.js
+window.fbAsyncInit = () => {
+  window.FB.init({
+    appId: '24323225693989708', // Facebook App ID (request IsvGetAppId https://www.alibabacloud.com/help/zh/cams/latest/api-cams-2020-06-06-isvgetappid?spm=a2c63.p38356.0.0.91ea280cTjYD4R)
+    cookie: true, // enable cookies
+    xfbml: true, // parse social plugins on this page
+    version: "v17.0", //Graph API version, V16.0 or V17.0
+  });
+};
 
-<script>
-  window.fbAsyncInit = function () {
-    // JavaScript SDK configuration and setup
-    FB.init({
-      appId            : '24323225693989708',
-      autoLogAppEvents : true,
-      xfbml            : true,
-      version          : 'v17.0'
-    });
-  };
-
-  // Load the JavaScript SDK asynchronously
-  (function (d, s, id) {
-    var js, fjs = d.getElementsByTagName(s)[0];
-    if (d.getElementById(id)) return;
-    js = d.createElement(s); js.id = id;
-    js.src = "https://connect.facebook.net/en_US/sdk.js";
-    fjs.parentNode.insertBefore(js, fjs);
-  }(document, 'script', 'facebook-jssdk'));
-
-  // Facebook Login with JavaScript SDK
-  function launchWhatsAppSignup() {
-    // Conversion tracking code
-    fbq && fbq('trackCustom', 'WhatsAppOnboardingStart', {appId: 'your-facebook-app-id', feature: 'whatsapp_embedded_signup'});
-    
-    // Launch Facebook login
-    FB.login(function (response) {
-      if (response.authResponse) {
-        const code = response.authResponse.code;
-        // The returned code must be transmitted to your backend, 
-  // which will perform a server-to-server call from there to our servers for an access token
-      } else {
-        console.log('User cancelled login or did not fully authorize.');
+const sessionInfoListener = (event) => {
+  if (event.origin !== "https://www.facebook.com") return;
+  try {
+    const eventData = JSON.parse(event.data);
+    console.log("[sessionInfoListener] get data", eventData);
+    if (eventData.type === "WA_EMBEDDED_SIGNUP") {
+      // if user finishes the Embedded Signup flow
+      if (eventData.event === "FINISH") {
+        const { phone_number_id, waba_id } = eventData.data;
+        console.log(
+          `[sessionInfoListener] wabaId => [${waba_id}],PhoneId => [${phone_number_id}]`
+          // newWaba: request ChatappBindWaba https://www.alibabacloud.com/help/zh/cams/latest/api-cams-2020-06-06-chatappbindwaba?spm=a2c63.p38356.0.0.5c934997Z3EJNa  
+          // addPhoneNumber: request ChatappSyncPhoneNumber https://www.alibabacloud.com/help/zh/cams/latest/api-cams-2020-06-06-chatappsyncphonenumber?spm=a2c63.p38356.0.0.452749976eL7Up
+        );
       }
-    }, {
+      // if user cancels the Embedded Signup flow
+      else {
+        const { currentStep } = eventData.data;
+      }
+    }
+  } catch {
+    // Don’t parse info that’s not a JSON
+    console.log("Non JSON Response", event.data);
+  }
+};
+
+// Facebook Login with JavaScript SDK
+const launchWhatsAppSignup = () => {
+  // Conversion tracking code
+  window.fbq &&
+    window.fbq("trackCustom", "WhatsAppOnboardingStart", {
+      appId: "[your-facebook-app-id]", // Facebook App ID
+      feature: "whatsapp_embedded_signup",
+    });
+  // Init event listener
+  window.addEventListener("message", sessionInfoListener);
+  // Launch Facebook login
+  FB.login(
+    function (response) {
+      if (response.authResponse) {
+        const accessToken = response.authResponse.accessToken;
+        //Use this token to call the debug_token API and get the shared WABA's ID
+      } else {
+        console.log("User cancelled login or did not fully authorize.");
+      }
+    },
+    {
       config_id: '906654931036540', // configuration ID goes here
       response_type: 'code',    // must be set to 'code' for System User access token
       override_default_response_type: true, // when true, any response types passed in the "response_type" will take precedence over the default types
+      scope: "business_management,whatsapp_business_management",
       extras: {
+        feature: "whatsapp_embedded_signup",
+        version: 2, // Please use version 2
+        sessionInfoVersion: 1,
         setup: {
-          //... // Prefilled data can go here
-        }
-      }
-    });
-  }
+          // Prefilled data can go here
+        },
+      },
+    }
+  );
+};
 </script>
-
-
-
-
-<button onclick="launchWhatsAppSignup()" style="background-color: #1877f2; border: 0; border-radius: 4px; color: #fff; cursor: pointer; font-family: Helvetica, Arial, sans-serif; font-size: 16px; font-weight: bold; height: 40px; padding: 0 24px;">Login with Facebook</button>
-
+// Example Button
+<button onclick="launchWhatsAppSignup()">Login with Facebook</button>
 </body>
 </html>
